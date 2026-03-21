@@ -1,9 +1,9 @@
 import { GpxPoint, GpxData } from './parser';
 
-// Smooth elevation with a centered moving average to eliminate GPS noise
+// Smooth elevation with a centered moving average to eliminate GPS noise.
+// After smoothing, all positive/negative deltas are summed — no per-step
+// threshold needed because the average already removes the jitter.
 const SMOOTHING_WINDOW = 10;
-// Minimum sustained change to count as real gain/loss (applied after smoothing)
-const ELEVATION_MIN_STEP_M = 5;
 
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
@@ -62,11 +62,8 @@ export function computeStats(data: GpxData): GpxStats {
     const currEle = smoothedEle[i];
     if (prevEle != null && currEle != null) {
       const diff = currEle - prevEle;
-      if (diff > ELEVATION_MIN_STEP_M) {
-        elevationGain += diff;
-      } else if (diff < -ELEVATION_MIN_STEP_M) {
-        elevationLoss += Math.abs(diff);
-      }
+      if (diff > 0) elevationGain += diff;
+      else if (diff < 0) elevationLoss += Math.abs(diff);
     }
   }
 
