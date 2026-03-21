@@ -5,38 +5,31 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  TextInput,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
-import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
-import { useGearTemplate } from '@/src/hooks/useGearTemplate';
-import {
-  createCategory,
-  renameCategory,
-  deleteCategory,
-  createItem,
-  renameItem,
-  deleteItem,
-} from '@/src/db/queries/gear';
-import { Category, GearItem } from '@/src/db/types';
+import { useGearManager } from '@/src/hooks/useGearManager';
+import { GearEditModal } from '@/src/components/GearEditModal';
 import { SectionHeader } from '@/src/components/SectionHeader';
-
-type ModalMode =
-  | { kind: 'add-category' }
-  | { kind: 'rename-category'; category: Category }
-  | { kind: 'add-item'; category: Category }
-  | { kind: 'rename-item'; item: GearItem };
+import { Category } from '@/src/db/types';
 
 export default function SettingsScreen() {
-  const db = useSQLiteContext();
-  const { categories, items, loading, reload } = useGearTemplate();
+  const {
+    categories,
+    items,
+    loading,
+    modal,
+    inputValue,
+    setInputValue,
+    working,
+    openModal,
+    closeModal,
+    confirmModal,
+    promptDeleteCategory,
+    promptDeleteItem,
+  } = useGearManager();
+
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [modal, setModal] = useState<ModalMode | null>(null);
-  const [inputValue, setInputValue] = useState('');
-  const [working, setWorking] = useState(false);
 
   const toggleCategory = useCallback((id: number) => {
     setExpandedIds((prev) => {
@@ -46,95 +39,6 @@ export default function SettingsScreen() {
       return next;
     });
   }, []);
-
-  const openModal = useCallback((mode: ModalMode) => {
-    if (mode.kind === 'rename-category') setInputValue(mode.category.name);
-    else if (mode.kind === 'rename-item') setInputValue(mode.item.name);
-    else setInputValue('');
-    setModal(mode);
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setModal(null);
-    setInputValue('');
-  }, []);
-
-  const handleConfirm = useCallback(async () => {
-    if (!modal) return;
-    const name = inputValue.trim();
-    if (!name) return;
-
-    setWorking(true);
-    try {
-      switch (modal.kind) {
-        case 'add-category':
-          await createCategory(db, name);
-          break;
-        case 'rename-category':
-          await renameCategory(db, modal.category.id, name);
-          break;
-        case 'add-item':
-          await createItem(db, modal.category.id, name);
-          break;
-        case 'rename-item':
-          await renameItem(db, modal.item.id, name);
-          break;
-      }
-      await reload();
-      closeModal();
-    } finally {
-      setWorking(false);
-    }
-  }, [modal, inputValue, db, reload, closeModal]);
-
-  const handleDeleteCategory = useCallback(
-    (cat: Category) => {
-      const catItems = items.filter((i) => i.category_id === cat.id);
-      const message =
-        catItems.length > 0
-          ? `This will also delete all ${catItems.length} items in this category.`
-          : 'Are you sure?';
-      Alert.alert(`Delete "${cat.name}"`, message, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteCategory(db, cat.id);
-            await reload();
-          },
-        },
-      ]);
-    },
-    [db, items, reload]
-  );
-
-  const handleDeleteItem = useCallback(
-    (item: GearItem) => {
-      Alert.alert(`Delete "${item.name}"?`, 'This item will be removed.', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteItem(db, item.id);
-            await reload();
-          },
-        },
-      ]);
-    },
-    [db, reload]
-  );
-
-  const modalTitle = modal
-    ? modal.kind === 'add-category'
-      ? 'New Category'
-      : modal.kind === 'rename-category'
-      ? `Rename "${modal.category.name}"`
-      : modal.kind === 'add-item'
-      ? `Add item to "${modal.category.name}"`
-      : `Rename "${modal.item.name}"`
-    : '';
 
   return (
     <>
@@ -148,7 +52,7 @@ export default function SettingsScreen() {
           <ActivityIndicator color="#2D6A4F" style={styles.loading} />
         ) : (
           <>
-            {categories.map((cat) => {
+            {categories.map((cat: Category) => {
               const catItems = items.filter((i) => i.category_id === cat.id);
               const expanded = expandedIds.has(cat.id);
 
@@ -175,7 +79,7 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.iconBtn}
-                      onPress={() => handleDeleteCategory(cat)}
+                      onPress={() => promptDeleteCategory(cat)}
                     >
                       <Ionicons name="trash-outline" size={17} color="#E63946" />
                     </TouchableOpacity>
@@ -196,7 +100,7 @@ export default function SettingsScreen() {
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.iconBtn}
-                            onPress={() => handleDeleteItem(item)}
+                            onPress={() => promptDeleteItem(item)}
                           >
                             <Ionicons name="trash-outline" size={16} color="#E63946" />
                           </TouchableOpacity>
@@ -215,7 +119,6 @@ export default function SettingsScreen() {
               );
             })}
 
-            {/* Add category button */}
             <TouchableOpacity
               style={styles.addCategoryBtn}
               onPress={() => openModal({ kind: 'add-category' })}
@@ -237,45 +140,14 @@ export default function SettingsScreen() {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Modal */}
-      <Modal visible={!!modal} transparent animationType="fade" onRequestClose={closeModal}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeModal}>
-          <TouchableOpacity
-            style={styles.modalCard}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={styles.modalTitle}>{modalTitle}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="Name"
-              placeholderTextColor="#BDBDBD"
-              autoFocus
-              maxLength={60}
-              onSubmitEditing={handleConfirm}
-              returnKeyType="done"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={closeModal}>
-                <Text style={styles.modalCancelLabel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalConfirmBtn, (!inputValue.trim() || working) && styles.modalBtnDisabled]}
-                onPress={handleConfirm}
-                disabled={!inputValue.trim() || working}
-              >
-                {working ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.modalConfirmLabel}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <GearEditModal
+        mode={modal}
+        inputValue={inputValue}
+        onChangeInput={setInputValue}
+        onConfirm={confirmModal}
+        onDismiss={closeModal}
+        working={working}
+      />
     </>
   );
 }
@@ -399,67 +271,5 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 48,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxWidth: 360,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#212121',
-  },
-  modalInput: {
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#212121',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-  },
-  modalCancelLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#757575',
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    backgroundColor: '#2D6A4F',
-    alignItems: 'center',
-  },
-  modalBtnDisabled: {
-    opacity: 0.5,
-  },
-  modalConfirmLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

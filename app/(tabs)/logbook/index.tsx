@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,9 @@ import {
 } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Marker } from 'react-native-maps';
 import { useEntries } from '@/src/hooks/useEntries';
 import { EntryCard } from '@/src/components/EntryCard';
-import { SwisstopoMap } from '@/src/components/SwisstopoMap';
-import { parseGpx } from '@/src/gpx/parser';
-import { gpxToLatLng, LatLng } from '@/src/gpx/stats';
-import { LogEntryWithParsed } from '@/src/db/types';
-import { formatDistance, formatElevation, activityIcon } from '@/src/utils/format';
+import { LogbookMapView } from '@/src/components/LogbookMapView';
 
 type ViewMode = 'list' | 'map';
 
@@ -26,7 +21,6 @@ export default function LogbookScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Reload when tab is focused
   useFocusEffect(
     useCallback(() => {
       reload();
@@ -39,9 +33,9 @@ export default function LogbookScreen() {
     setRefreshing(false);
   }, [reload]);
 
-  const navigateToEntry = (id: number) => {
+  const navigateToEntry = useCallback((id: number) => {
     router.push(`/(tabs)/logbook/${id}`);
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -51,24 +45,17 @@ export default function LogbookScreen() {
           style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
           onPress={() => setViewMode('list')}
         >
-          <Ionicons
-            name="list"
-            size={18}
-            color={viewMode === 'list' ? '#FFFFFF' : '#757575'}
-          />
+          <Ionicons name="list" size={18} color={viewMode === 'list' ? '#FFFFFF' : '#757575'} />
           <Text style={[styles.toggleLabel, viewMode === 'list' && styles.toggleLabelActive]}>
             List
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.toggleBtn, viewMode === 'map' && styles.toggleBtnActive]}
           onPress={() => setViewMode('map')}
         >
-          <Ionicons
-            name="map-outline"
-            size={18}
-            color={viewMode === 'map' ? '#FFFFFF' : '#757575'}
-          />
+          <Ionicons name="map-outline" size={18} color={viewMode === 'map' ? '#FFFFFF' : '#757575'} />
           <Text style={[styles.toggleLabel, viewMode === 'map' && styles.toggleLabelActive]}>
             Map
           </Text>
@@ -107,61 +94,9 @@ export default function LogbookScreen() {
 
       {/* Map View */}
       <View style={[StyleSheet.absoluteFill, styles.viewContainer, viewMode !== 'map' && styles.hidden]}>
-        <MapView
-          entries={entries}
-          onEntryPress={navigateToEntry}
-          active={viewMode === 'map'}
-        />
+        <LogbookMapView entries={entries} onEntryPress={navigateToEntry} />
       </View>
     </View>
-  );
-}
-
-// Separate component to avoid re-parsing when list entries update
-interface MapViewComponentProps {
-  entries: LogEntryWithParsed[];
-  onEntryPress: (id: number) => void;
-  active: boolean;
-}
-
-function MapView({ entries, onEntryPress, active }: MapViewComponentProps) {
-  const tracksWithIds = entries
-    .filter((e) => !!e.gpx_raw)
-    .map((e) => {
-      try {
-        const data = parseGpx(e.gpx_raw!);
-        return { id: e.id, coords: gpxToLatLng(data), entry: e };
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean) as { id: number; coords: LatLng[]; entry: LogEntryWithParsed }[];
-
-  const tracks = tracksWithIds.map((t) => t.coords);
-
-  return (
-    <SwisstopoMap
-      tracks={tracks}
-      onTrackPress={(index) => onEntryPress(tracksWithIds[index].id)}
-      style={StyleSheet.absoluteFill}
-    >
-      {tracksWithIds.map((t) => {
-        if (t.coords.length === 0) return null;
-        const start = t.coords[0];
-        return (
-          <Marker
-            key={t.id}
-            coordinate={start}
-            onPress={() => onEntryPress(t.id)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.markerBubble}>
-              <Text style={styles.markerIcon}>{activityIcon(t.entry.activity_type)}</Text>
-            </View>
-          </Marker>
-        );
-      })}
-    </SwisstopoMap>
   );
 }
 
@@ -204,7 +139,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   viewContainer: {
-    top: 62, // below toggle bar (12 margin + 44 height + 6 extra)
+    top: 62,
   },
   hidden: {
     display: 'none',
@@ -243,21 +178,5 @@ const styles = StyleSheet.create({
     color: '#757575',
     textAlign: 'center',
     lineHeight: 22,
-  },
-  markerBubble: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  markerIcon: {
-    fontSize: 16,
   },
 });

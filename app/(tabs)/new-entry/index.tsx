@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,25 +6,18 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useGearTemplate } from '@/src/hooks/useGearTemplate';
-import { useGpxImport } from '@/src/hooks/useGpxImport';
-import { createEntry } from '@/src/db/queries/entries';
+import { useNewEntry } from '@/src/hooks/useNewEntry';
 import { GearChecklist } from '@/src/components/GearChecklist';
 import { PhotoStrip } from '@/src/components/PhotoStrip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { SwisstopoMap } from '@/src/components/SwisstopoMap';
 import { StatsBar } from '@/src/components/StatsBar';
-import { persistPhoto } from '@/src/utils/photos';
-import { todayIso, formatDistance, formatDuration, formatElevation } from '@/src/utils/format';
 import { ActivityType } from '@/src/db/types';
 
 const ACTIVITY_TYPES: ActivityType[] = ['Hike', 'Trailrun', 'Skitour', 'Bike'];
@@ -36,91 +29,21 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
 };
 
 export default function NewEntryScreen() {
-  const db = useSQLiteContext();
   const { categories, items } = useGearTemplate();
-  const { result: gpxResult, error: gpxError, loading: gpxLoading, pickGpx, clear: clearGpx } = useGpxImport();
-
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(todayIso());
-  const [activityType, setActivityType] = useState<ActivityType>('Hike');
-  const [notes, setNotes] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [gearSelections, setGearSelections] = useState<Record<string, boolean>>({});
-  const [saving, setSaving] = useState(false);
-
-  const toggleGear = useCallback((itemId: number) => {
-    setGearSelections((prev) => ({
-      ...prev,
-      [String(itemId)]: !prev[String(itemId)],
-    }));
-  }, []);
-
-  const addPhoto = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photo library in Settings.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-      allowsEditing: false,
-    });
-
-    if (!result.canceled && result.assets.length > 0) {
-      const uri = result.assets[0].uri;
-      try {
-        const persistedUri = await persistPhoto(uri);
-        setPhotos((prev) => [...prev, persistedUri]);
-      } catch {
-        Alert.alert('Error', 'Failed to save photo. Please try again.');
-      }
-    }
-  }, []);
-
-  const removePhoto = useCallback((index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a title for this entry.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await createEntry(db, {
-        title: title.trim(),
-        date,
-        activity_type: activityType,
-        notes: notes.trim() || undefined,
-        photos,
-        gear_selections: gearSelections,
-        gpx_raw: gpxResult?.raw,
-        distance_km: gpxResult?.stats.distance_km,
-        duration_minutes: gpxResult?.stats.duration_minutes ?? undefined,
-        elevation_gain_m: gpxResult?.stats.elevation_gain_m,
-        elevation_loss_m: gpxResult?.stats.elevation_loss_m,
-      });
-
-      // Reset form
-      setTitle('');
-      setDate(todayIso());
-      setActivityType('Hike');
-      setNotes('');
-      setPhotos([]);
-      setGearSelections({});
-      clearGpx();
-
-      router.replace('/(tabs)/logbook');
-    } catch (e) {
-      Alert.alert('Error', 'Failed to save entry. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  }, [db, title, date, activityType, notes, photos, gearSelections, gpxResult, clearGpx]);
+  const {
+    gpx,
+    title, setTitle,
+    date, setDate,
+    activityType, setActivityType,
+    notes, setNotes,
+    photos,
+    gearSelections,
+    saving,
+    toggleGear,
+    addPhoto,
+    removePhoto,
+    handleSave,
+  } = useNewEntry();
 
   return (
     <KeyboardAvoidingView
@@ -133,37 +56,29 @@ export default function NewEntryScreen() {
         {/* GPX Import */}
         <SectionHeader title="GPS Track" />
         <View style={styles.gpxSection}>
-          {gpxResult ? (
+          {gpx.result ? (
             <View style={styles.gpxImported}>
               <View style={styles.gpxMapContainer}>
-                <SwisstopoMap
-                  tracks={[gpxResult.coords]}
-                  fitToTracks
-                  style={styles.gpxMap}
-                />
+                <SwisstopoMap tracks={[gpx.result.coords]} fitToTracks style={styles.gpxMap} />
               </View>
               <StatsBar
-                distanceKm={gpxResult.stats.distance_km}
-                durationMinutes={gpxResult.stats.duration_minutes}
-                elevationGainM={gpxResult.stats.elevation_gain_m}
-                elevationLossM={gpxResult.stats.elevation_loss_m}
+                distanceKm={gpx.result.stats.distance_km}
+                durationMinutes={gpx.result.stats.duration_minutes}
+                elevationGainM={gpx.result.stats.elevation_gain_m}
+                elevationLossM={gpx.result.stats.elevation_loss_m}
               />
               <View style={styles.gpxRow}>
                 <Ionicons name="document-text-outline" size={16} color="#2D6A4F" />
-                <Text style={styles.gpxFileName} numberOfLines={1}>{gpxResult.fileName}</Text>
-                <TouchableOpacity onPress={clearGpx} style={styles.gpxClearBtn}>
+                <Text style={styles.gpxFileName} numberOfLines={1}>{gpx.result.fileName}</Text>
+                <TouchableOpacity onPress={gpx.clear} style={styles.gpxClearBtn}>
                   <Text style={styles.gpxClearText}>Remove</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.gpxEmpty}>
-              <TouchableOpacity
-                style={styles.gpxPickBtn}
-                onPress={pickGpx}
-                disabled={gpxLoading}
-              >
-                {gpxLoading ? (
+              <TouchableOpacity style={styles.gpxPickBtn} onPress={gpx.pickGpx} disabled={gpx.loading}>
+                {gpx.loading ? (
                   <ActivityIndicator color="#2D6A4F" size="small" />
                 ) : (
                   <>
@@ -173,7 +88,7 @@ export default function NewEntryScreen() {
                   </>
                 )}
               </TouchableOpacity>
-              {gpxError && <Text style={styles.gpxError}>{gpxError}</Text>}
+              {gpx.error && <Text style={styles.gpxError}>{gpx.error}</Text>}
             </View>
           )}
         </View>
@@ -211,19 +126,11 @@ export default function NewEntryScreen() {
           {ACTIVITY_TYPES.map((type) => (
             <TouchableOpacity
               key={type}
-              style={[
-                styles.activityBtn,
-                activityType === type && styles.activityBtnActive,
-              ]}
+              style={[styles.activityBtn, activityType === type && styles.activityBtnActive]}
               onPress={() => setActivityType(type)}
             >
               <Text style={styles.activityBtnIcon}>{ACTIVITY_ICONS[type]}</Text>
-              <Text
-                style={[
-                  styles.activityBtnLabel,
-                  activityType === type && styles.activityBtnLabelActive,
-                ]}
-              >
+              <Text style={[styles.activityBtnLabel, activityType === type && styles.activityBtnLabelActive]}>
                 {type}
               </Text>
             </TouchableOpacity>
@@ -232,12 +139,7 @@ export default function NewEntryScreen() {
 
         {/* Photos */}
         <SectionHeader title={`Photos (${photos.length}/3)`} />
-        <PhotoStrip
-          photos={photos}
-          onAdd={addPhoto}
-          onRemove={removePhoto}
-          maxPhotos={3}
-        />
+        <PhotoStrip photos={photos} onAdd={addPhoto} onRemove={removePhoto} maxPhotos={3} />
 
         {/* Notes */}
         <SectionHeader title="Notes" />
