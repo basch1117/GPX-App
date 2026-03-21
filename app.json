@@ -46,7 +46,8 @@
           "photosPermission": "TrailLog needs access to your photo library to attach photos to log entries.",
           "cameraPermission": "TrailLog needs camera access to take photos for log entries."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
