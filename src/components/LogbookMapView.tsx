@@ -64,9 +64,9 @@ export function LogbookMapView({ entries, onEntryPress }: LogbookMapViewProps) {
 const styles = StyleSheet.create({
   markerBubble: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    width: 32,
-    height: 32,
+    borderRadius: 10,
+    width: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -76,6 +76,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   markerIcon: {
-    fontSize: 16,
+    fontSize: 11,
   },
 });
