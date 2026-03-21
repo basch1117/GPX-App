@@ -1,9 +1,22 @@
 import { GpxPoint, GpxData } from './parser';
 
-const ELEVATION_NOISE_THRESHOLD_M = 2;
+// Smooth elevation with a centered moving average to eliminate GPS noise
+const SMOOTHING_WINDOW = 10;
+// Minimum sustained change to count as real gain/loss (applied after smoothing)
+const ELEVATION_MIN_STEP_M = 5;
 
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
+}
+
+function smoothElevations(points: GpxPoint[]): (number | null)[] {
+  const half = Math.floor(SMOOTHING_WINDOW / 2);
+  return points.map((_, i) => {
+    const slice = points.slice(Math.max(0, i - half), Math.min(points.length, i + half + 1));
+    const valid = slice.map((p) => p.ele).filter((e): e is number => e != null);
+    if (valid.length === 0) return null;
+    return valid.reduce((a, b) => a + b, 0) / valid.length;
+  });
 }
 
 function haversineKm(a: GpxPoint, b: GpxPoint): number {
@@ -40,16 +53,18 @@ export function computeStats(data: GpxData): GpxStats {
   let elevationGain = 0;
   let elevationLoss = 0;
 
+  const smoothedEle = smoothElevations(points);
+
   for (let i = 1; i < points.length; i++) {
     distanceKm += haversineKm(points[i - 1], points[i]);
 
-    const prevEle = points[i - 1].ele;
-    const currEle = points[i].ele;
+    const prevEle = smoothedEle[i - 1];
+    const currEle = smoothedEle[i];
     if (prevEle != null && currEle != null) {
       const diff = currEle - prevEle;
-      if (diff > ELEVATION_NOISE_THRESHOLD_M) {
+      if (diff > ELEVATION_MIN_STEP_M) {
         elevationGain += diff;
-      } else if (diff < -ELEVATION_NOISE_THRESHOLD_M) {
+      } else if (diff < -ELEVATION_MIN_STEP_M) {
         elevationLoss += Math.abs(diff);
       }
     }

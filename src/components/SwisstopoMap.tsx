@@ -76,7 +76,7 @@ export const SwisstopoMap = memo(function SwisstopoMap({
             key={index}
             coordinates={coords}
             strokeColor={index === selectedTrackIndex ? '#E63946' : '#2D6A4F'}
-            strokeWidth={index === selectedTrackIndex ? 4 : 3}
+            strokeWidth={index === selectedTrackIndex ? 7 : 5}
             tappable={!!onTrackPress}
             onPress={() => onTrackPress?.(index)}
           />
