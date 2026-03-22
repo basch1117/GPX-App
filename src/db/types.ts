@@ -1,5 +1,9 @@
 export type ActivityType = 'Hike' | 'Trailrun' | 'Skitour' | 'Bike';
 
+export type WindLevel = 'none' | 'low' | 'medium' | 'high';
+export type SkyCondition = 'snow' | 'cloudy' | 'partly_sunny' | 'sunny';
+export type OutfitComfort = 'too_cold' | 'good' | 'too_hot';
+
 export interface Category {
   id: number;
   name: string;
@@ -28,6 +32,13 @@ export interface LogEntry {
   duration_minutes: number | null;
   elevation_gain_m: number | null;
   elevation_loss_m: number | null;
+  temperature_c: number | null;
+  wind: WindLevel | null;
+  sky: SkyCondition | null;
+  outfit_comfort: OutfitComfort | null;
+  location_name: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   created_at: string;
 }
 

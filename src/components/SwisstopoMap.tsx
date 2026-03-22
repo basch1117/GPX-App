@@ -1,11 +1,14 @@
-import React, { useRef, useEffect, memo } from 'react';
+import React, { useRef, useEffect, useState, memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { UrlTile, Polyline, PROVIDER_DEFAULT, Region, MapViewProps } from 'react-native-maps';
-import { LatLng, computeBounds } from '../gpx/stats';
+import { Directory, Paths } from 'expo-file-system';
+import { LatLng } from '../gpx/stats';
 
 const SWISSTOPO_URL =
   'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe' +
   '/default/current/3857/{z}/{x}/{y}.jpeg';
+
+const TILE_CACHE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
 
 // Switzerland center
 const SWITZERLAND_REGION: Region = {
@@ -17,25 +20,29 @@ const SWITZERLAND_REGION: Region = {
 
 interface SwisstopoMapProps extends Omit<MapViewProps, 'provider' | 'mapType'> {
   tracks?: LatLng[][];
+  trackColors?: string[];
   onTrackPress?: (index: number) => void;
   selectedTrackIndex?: number;
   fitToTracks?: boolean;
   children?: React.ReactNode;
 }
 
-const TileLayer = memo(() => (
+// Memoised tile layer — rebuilt only when cachePath changes to avoid iOS flicker
+const TileLayer = memo(({ cachePath }: { cachePath: string | undefined }) => (
   <UrlTile
     urlTemplate={SWISSTOPO_URL}
     maximumZ={17}
     minimumZ={8}
     tileSize={256}
     zIndex={-1}
+    {...(cachePath ? { tileCachePath: cachePath, tileCacheMaxAge: TILE_CACHE_MAX_AGE } : {})}
   />
 ));
 TileLayer.displayName = 'TileLayer';
 
 export const SwisstopoMap = memo(function SwisstopoMap({
   tracks = [],
+  trackColors,
   onTrackPress,
   selectedTrackIndex,
   fitToTracks = false,
@@ -44,6 +51,18 @@ export const SwisstopoMap = memo(function SwisstopoMap({
   ...rest
 }: SwisstopoMapProps) {
   const mapRef = useRef<MapView>(null);
+  const [cachePath, setCachePath] = useState<string | undefined>(undefined);
+
+  // Set up tile cache directory once on mount
+  useEffect(() => {
+    try {
+      const dir = new Directory(Paths.cache, 'swisstopo_tiles');
+      dir.create({ intermediates: true });
+      setCachePath(dir.uri);
+    } catch {
+      // If cache setup fails, tiles still load — just without caching
+    }
+  }, []);
 
   useEffect(() => {
     if (!fitToTracks) return;
@@ -70,12 +89,12 @@ export const SwisstopoMap = memo(function SwisstopoMap({
         rotateEnabled={false}
         {...rest}
       >
-        <TileLayer />
+        <TileLayer cachePath={cachePath} />
         {tracks.map((coords, index) => (
           <Polyline
             key={index}
             coordinates={coords}
-            strokeColor={index === selectedTrackIndex ? '#E63946' : '#2D6A4F'}
+            strokeColor={trackColors?.[index] ?? (index === selectedTrackIndex ? '#E63946' : '#2D6A4F')}
             strokeWidth={index === selectedTrackIndex ? 7 : 5}
             tappable={!!onTrackPress}
             onPress={() => onTrackPress?.(index)}

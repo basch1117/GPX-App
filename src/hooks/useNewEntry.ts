@@ -4,14 +4,16 @@ import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { useGpxImport } from './useGpxImport';
+import { useLocationSearch } from './useLocationSearch';
 import { createEntry } from '../db/queries/entries';
 import { persistPhoto } from '../utils/photos';
 import { todayIso } from '../utils/format';
-import { ActivityType } from '../db/types';
+import { ActivityType, WindLevel, SkyCondition, OutfitComfort } from '../db/types';
 
 export function useNewEntry() {
   const db = useSQLiteContext();
   const gpx = useGpxImport();
+  const locationSearch = useLocationSearch();
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayIso);
@@ -19,6 +21,10 @@ export function useNewEntry() {
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [gearSelections, setGearSelections] = useState<Record<string, boolean>>({});
+  const [temperatureInput, setTemperatureInput] = useState('');
+  const [wind, setWind] = useState<WindLevel | null>(null);
+  const [sky, setSky] = useState<SkyCondition | null>(null);
+  const [outfitComfort, setOutfitComfort] = useState<OutfitComfort | null>(null);
   const [saving, setSaving] = useState(false);
 
   const toggleGear = useCallback((itemId: number) => {
@@ -64,7 +70,12 @@ export function useNewEntry() {
     setNotes('');
     setPhotos([]);
     setGearSelections({});
+    setTemperatureInput('');
+    setWind(null);
+    setSky(null);
+    setOutfitComfort(null);
     gpx.clear();
+    locationSearch.clear();
   }, [gpx]);
 
   const handleSave = useCallback(async () => {
@@ -87,6 +98,13 @@ export function useNewEntry() {
         duration_minutes: gpx.result?.stats.duration_minutes ?? undefined,
         elevation_gain_m: gpx.result?.stats.elevation_gain_m,
         elevation_loss_m: gpx.result?.stats.elevation_loss_m,
+        temperature_c: temperatureInput.trim() ? parseFloat(temperatureInput) : undefined,
+        wind: wind ?? undefined,
+        sky: sky ?? undefined,
+        outfit_comfort: outfitComfort ?? undefined,
+        location_name: locationSearch.selected?.name ?? undefined,
+        location_lat: locationSearch.selected?.lat ?? undefined,
+        location_lng: locationSearch.selected?.lng ?? undefined,
       });
       resetForm();
       router.replace('/(tabs)/logbook');
@@ -95,7 +113,7 @@ export function useNewEntry() {
     } finally {
       setSaving(false);
     }
-  }, [db, title, date, activityType, notes, photos, gearSelections, gpx.result, resetForm]);
+  }, [db, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, outfitComfort, locationSearch.selected, resetForm]);
 
   return {
     // GPX import
@@ -117,5 +135,16 @@ export function useNewEntry() {
     addPhoto,
     removePhoto,
     handleSave,
+    // Conditions
+    temperatureInput,
+    setTemperatureInput,
+    wind,
+    setWind,
+    sky,
+    setSky,
+    outfitComfort,
+    setOutfitComfort,
+    // Location search
+    locationSearch,
   };
 }

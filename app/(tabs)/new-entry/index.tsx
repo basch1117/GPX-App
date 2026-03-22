@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useGearTemplate } from '@/src/hooks/useGearTemplate';
 import { useNewEntry } from '@/src/hooks/useNewEntry';
@@ -18,9 +20,30 @@ import { PhotoStrip } from '@/src/components/PhotoStrip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { SwisstopoMap } from '@/src/components/SwisstopoMap';
 import { StatsBar } from '@/src/components/StatsBar';
-import { ActivityType } from '@/src/db/types';
+import { ActivityType, WindLevel, SkyCondition, OutfitComfort } from '@/src/db/types';
+import { formatDateSwiss, isoToDate, dateToIso } from '@/src/utils/format';
 
 const ACTIVITY_TYPES: ActivityType[] = ['Hike', 'Trailrun', 'Skitour', 'Bike'];
+
+const WIND_OPTIONS: { value: WindLevel; label: string }[] = [
+  { value: 'none',   label: 'None'   },
+  { value: 'low',    label: 'Low'    },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high',   label: 'High'   },
+];
+
+const SKY_OPTIONS: { value: SkyCondition; label: string; icon: string }[] = [
+  { value: 'snow',         label: 'Snow',          icon: '🌨' },
+  { value: 'cloudy',       label: 'Cloudy',         icon: '☁️' },
+  { value: 'partly_sunny', label: 'Partly Sunny',   icon: '⛅' },
+  { value: 'sunny',        label: 'Sunny',          icon: '☀️' },
+];
+const OUTFIT_OPTIONS: { value: OutfitComfort; label: string; icon: string }[] = [
+  { value: 'too_cold', label: 'Too Cold', icon: '🥶' },
+  { value: 'good',     label: 'Good',     icon: '👌' },
+  { value: 'too_hot',  label: 'Too Hot',  icon: '🥵' },
+];
+
 const ACTIVITY_ICONS: Record<ActivityType, string> = {
   Hike: '🥾',
   Trailrun: '🏃',
@@ -30,6 +53,7 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
 
 export default function NewEntryScreen() {
   const { categories, items } = useGearTemplate();
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const {
     gpx,
     title, setTitle,
@@ -43,6 +67,15 @@ export default function NewEntryScreen() {
     addPhoto,
     removePhoto,
     handleSave,
+    temperatureInput,
+    setTemperatureInput,
+    wind,
+    setWind,
+    sky,
+    setSky,
+    outfitComfort,
+    setOutfitComfort,
+    locationSearch,
   } = useNewEntry();
 
   return (
@@ -93,6 +126,62 @@ export default function NewEntryScreen() {
           )}
         </View>
 
+        {/* Location */}
+        <SectionHeader title="Location" />
+        <View style={styles.locationCard}>
+          {locationSearch.selected ? (
+            /* Selected chip */
+            <View style={styles.locationChip}>
+              <Ionicons name="location" size={16} color="#2D6A4F" />
+              <Text style={styles.locationChipText} numberOfLines={1}>
+                {locationSearch.selected.name}
+              </Text>
+              <TouchableOpacity onPress={locationSearch.clear} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color="#9E9E9E" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Search input */
+            <View style={styles.locationSearchRow}>
+              <Ionicons name="search-outline" size={18} color="#9E9E9E" />
+              <TextInput
+                style={styles.locationInput}
+                value={locationSearch.query}
+                onChangeText={locationSearch.setQuery}
+                placeholder="Search peak, mountain or place…"
+                placeholderTextColor="#BDBDBD"
+                autoCorrect={false}
+                autoCapitalize="words"
+              />
+              {locationSearch.loading && (
+                <ActivityIndicator size="small" color="#2D6A4F" />
+              )}
+            </View>
+          )}
+
+          {/* Results list */}
+          {locationSearch.results.length > 0 && (
+            <View style={styles.locationResults}>
+              {locationSearch.results.map((r, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    styles.locationResultItem,
+                    i < locationSearch.results.length - 1 && styles.locationResultBorder,
+                  ]}
+                  onPress={() => locationSearch.select(r)}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="location-outline" size={15} color="#9E9E9E" />
+                  <Text style={styles.locationResultText} numberOfLines={1}>
+                    {r.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Title */}
         <SectionHeader title="Title" />
         <View style={styles.inputContainer}>
@@ -108,17 +197,66 @@ export default function NewEntryScreen() {
 
         {/* Date */}
         <SectionHeader title="Date" />
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#BDBDBD"
-            keyboardType="numbers-and-punctuation"
-            maxLength={10}
+        <TouchableOpacity
+          style={styles.dateButton}
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={18} color="#2D6A4F" />
+          <Text style={styles.dateButtonText}>{formatDateSwiss(date)}</Text>
+          <Ionicons name="chevron-down" size={16} color="#9E9E9E" />
+        </TouchableOpacity>
+
+        {/* iOS: modal calendar */}
+        {Platform.OS === 'ios' && (
+          <Modal
+            visible={showDatePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowDatePicker(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <View style={styles.datePickerCard}>
+                <DateTimePicker
+                  value={isoToDate(date)}
+                  mode="date"
+                  display="inline"
+                  onChange={(_: DateTimePickerEvent, selected?: Date) => {
+                    if (selected) setDate(dateToIso(selected));
+                  }}
+                  locale="de-CH"
+                  themeVariant="light"
+                  accentColor="#2D6A4F"
+                  maximumDate={new Date()}
+                />
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        )}
+
+        {/* Android: system date dialog */}
+        {Platform.OS === 'android' && showDatePicker && (
+          <DateTimePicker
+            value={isoToDate(date)}
+            mode="date"
+            display="calendar"
+            onChange={(_: DateTimePickerEvent, selected?: Date) => {
+              setShowDatePicker(false);
+              if (selected) setDate(dateToIso(selected));
+            }}
+            maximumDate={new Date()}
           />
-        </View>
+        )}
 
         {/* Activity Type */}
         <SectionHeader title="Activity Type" />
@@ -156,6 +294,67 @@ export default function NewEntryScreen() {
           />
         </View>
 
+        {/* Conditions */}
+        <SectionHeader title="Conditions" />
+        <View style={styles.conditionsCard}>
+          {/* Temperature */}
+          <View style={styles.conditionRow}>
+            <Text style={styles.conditionLabel}>🌡  Temperature</Text>
+            <View style={styles.tempInputRow}>
+              <TextInput
+                style={styles.tempInput}
+                value={temperatureInput}
+                onChangeText={setTemperatureInput}
+                placeholder="—"
+                placeholderTextColor="#BDBDBD"
+                keyboardType="numeric"
+                maxLength={5}
+              />
+              <Text style={styles.tempUnit}>°C</Text>
+            </View>
+          </View>
+
+          <View style={styles.conditionDivider} />
+
+          {/* Wind */}
+          <View style={styles.conditionBlock}>
+            <Text style={styles.conditionLabel}>💨  Wind</Text>
+            <View style={styles.pillRow}>
+              {WIND_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[styles.pill, wind === o.value && styles.pillActive]}
+                  onPress={() => setWind(wind === o.value ? null : o.value)}
+                >
+                  <Text style={[styles.pillText, wind === o.value && styles.pillTextActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.conditionDivider} />
+
+          {/* Sky */}
+          <View style={styles.conditionBlock}>
+            <Text style={styles.conditionLabel}>☀️  Sky</Text>
+            <View style={styles.pillRow}>
+              {SKY_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[styles.pill, sky === o.value && styles.pillActive]}
+                  onPress={() => setSky(sky === o.value ? null : o.value)}
+                >
+                  <Text style={[styles.pillText, sky === o.value && styles.pillTextActive]}>
+                    {o.icon} {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+
         {/* Gear Checklist */}
         <SectionHeader title="Gear" />
         <View style={styles.gearContainer}>
@@ -165,6 +364,24 @@ export default function NewEntryScreen() {
             selections={gearSelections}
             onToggle={toggleGear}
           />
+        </View>
+
+        {/* Outfit Comfort */}
+        <View style={styles.outfitCard}>
+          <Text style={styles.outfitLabel}>🧥  How was the outfit?</Text>
+          <View style={styles.pillRow}>
+            {OUTFIT_OPTIONS.map((o) => (
+              <TouchableOpacity
+                key={o.value}
+                style={[styles.pill, outfitComfort === o.value && styles.pillActive]}
+                onPress={() => setOutfitComfort(outfitComfort === o.value ? null : o.value)}
+              >
+                <Text style={[styles.pillText, outfitComfort === o.value && styles.pillTextActive]}>
+                  {o.icon} {o.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Save Button */}
@@ -268,6 +485,56 @@ const styles = StyleSheet.create({
     color: '#E63946',
     fontWeight: '600',
   },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  dateButtonText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#212121',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  datePickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  doneButton: {
+    backgroundColor: '#2D6A4F',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    marginTop: 4,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   inputContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -323,6 +590,75 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
+  locationCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  locationSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  locationInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#212121',
+  },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  locationChipText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#212121',
+    fontWeight: '500',
+  },
+  locationResults: {
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  locationResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: '#FFFFFF',
+  },
+  locationResultBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  locationResultText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#424242',
+  },
+  outfitCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  outfitLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#424242',
+  },
   saveContainer: {
     paddingHorizontal: 16,
     marginTop: 24,
@@ -351,5 +687,82 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 48,
+  },
+  conditionsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  conditionBlock: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  conditionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#424242',
+  },
+  conditionDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 14,
+  },
+  tempInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tempInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 15,
+    color: '#212121',
+    width: 72,
+    textAlign: 'right',
+  },
+  tempUnit: {
+    fontSize: 14,
+    color: '#757575',
+    fontWeight: '500',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FAFAFA',
+  },
+  pillActive: {
+    borderColor: '#2D6A4F',
+    backgroundColor: '#E8F5E9',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#757575',
+  },
+  pillTextActive: {
+    color: '#2D6A4F',
+    fontWeight: '600',
   },
 });

@@ -46,15 +46,11 @@ const SCHEMA_V1 = `
 const DEFAULT_GEAR = [
   {
     name: 'Layers',
-    items: ['Base layer', 'Mid layer', 'Hardshell', 'Softshell', 'Down jacket'],
+    items: ['Base layer', 'Mid layer', 'Vest', 'Fleece', 'Hardshell', 'Softshell', 'Down jacket'],
   },
   {
     name: 'Head & Hands',
-    items: ['Hat', 'Helmet', 'Gloves', 'Goggles', 'Balaclava'],
-  },
-  {
-    name: 'Safety',
-    items: ['Avalanche beacon', 'Probe', 'Shovel', 'Airbag pack'],
+    items: ['Hat', 'Headband', 'Gloves', 'Goggles', 'Balaclava'],
   },
   {
     name: 'Footwear',
@@ -70,6 +66,75 @@ export async function runMigrations(db: SQLiteDatabase) {
   const rows = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_version LIMIT 1'
   );
+
+  // ── v2: add conditions columns ─────────────────────────────────────────────
+  const v2Check = await db.getAllAsync<{ version: number }>(
+    'SELECT version FROM schema_version WHERE version = 2 LIMIT 1'
+  );
+  if (v2Check.length === 0 && rows.length > 0) {
+    await db.execAsync(`
+      ALTER TABLE log_entries ADD COLUMN temperature_c  REAL;
+      ALTER TABLE log_entries ADD COLUMN wind           TEXT;
+      ALTER TABLE log_entries ADD COLUMN sky            TEXT;
+    `);
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (2)');
+  }
+
+  // ── v3: gear overhaul + outfit_comfort column ───────────────────────────────
+  const v3Check = await db.getAllAsync<{ version: number }>(
+    'SELECT version FROM schema_version WHERE version = 3 LIMIT 1'
+  );
+  if (v3Check.length === 0 && rows.length > 0) {
+    // Add outfit_comfort column
+    await db.execAsync('ALTER TABLE log_entries ADD COLUMN outfit_comfort TEXT;');
+
+    // Remove Safety category (CASCADE deletes its items)
+    await db.runAsync(
+      'DELETE FROM categories WHERE name = ? AND is_default = 1',
+      ['Safety']
+    );
+
+    // Remove Helmet from Head & Hands
+    await db.runAsync(
+      `DELETE FROM items WHERE name = ? AND is_default = 1
+         AND category_id = (SELECT id FROM categories WHERE name = ? LIMIT 1)`,
+      ['Helmet', 'Head & Hands']
+    );
+
+    // Add Headband to Head & Hands
+    await db.runAsync(
+      `INSERT INTO items (category_id, name, sort_order, is_default)
+       SELECT id, ?, 5, 1 FROM categories WHERE name = ? LIMIT 1`,
+      ['Headband', 'Head & Hands']
+    );
+
+    // Add Vest and Fleece to Layers
+    await db.runAsync(
+      `INSERT INTO items (category_id, name, sort_order, is_default)
+       SELECT id, ?, 5, 1 FROM categories WHERE name = ? LIMIT 1`,
+      ['Vest', 'Layers']
+    );
+    await db.runAsync(
+      `INSERT INTO items (category_id, name, sort_order, is_default)
+       SELECT id, ?, 6, 1 FROM categories WHERE name = ? LIMIT 1`,
+      ['Fleece', 'Layers']
+    );
+
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (3)');
+  }
+
+  // ── v4: manual geotag columns ───────────────────────────────────────────────
+  const v4Check = await db.getAllAsync<{ version: number }>(
+    'SELECT version FROM schema_version WHERE version = 4 LIMIT 1'
+  );
+  if (v4Check.length === 0 && rows.length > 0) {
+    await db.execAsync(`
+      ALTER TABLE log_entries ADD COLUMN location_name TEXT;
+      ALTER TABLE log_entries ADD COLUMN location_lat  REAL;
+      ALTER TABLE log_entries ADD COLUMN location_lng  REAL;
+    `);
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (4)');
+  }
 
   if (rows.length === 0) {
     // Seed default gear
@@ -88,5 +153,8 @@ export async function runMigrations(db: SQLiteDatabase) {
       }
     }
     await db.runAsync('INSERT INTO schema_version (version) VALUES (1)');
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (2)');
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (3)');
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (4)');
   }
 }
