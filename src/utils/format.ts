@@ -1,4 +1,4 @@
-import { ActivityType } from '../db/types';
+import { ActivityType, WindLevel, SkyCondition } from '../db/types';
 
 export function formatDate(isoDate: string): string {
   const [year, month, day] = isoDate.split('-').map(Number);
@@ -42,6 +42,27 @@ export function activityIcon(type: ActivityType): string {
     Bike: '🚴',
   };
   return icons[type] ?? '📍';
+}
+
+export function formatTemperature(c: number | null): string {
+  if (c == null) return '—';
+  return `${c} °C`;
+}
+
+export function windLabel(w: WindLevel | null): string {
+  if (w == null) return '—';
+  const labels: Record<WindLevel, string> = {
+    none: 'None', low: 'Low', medium: 'Medium', high: 'High',
+  };
+  return labels[w];
+}
+
+export function skyLabel(s: SkyCondition | null): string {
+  if (s == null) return '—';
+  const labels: Record<SkyCondition, string> = {
+    snow: 'Snow', cloudy: 'Cloudy', partly_sunny: 'Partly Sunny', sunny: 'Sunny',
+  };
+  return labels[s];
 }
 
 export function todayIso(): string {

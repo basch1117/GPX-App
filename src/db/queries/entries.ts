@@ -1,5 +1,5 @@
 import { SQLiteDatabase } from 'expo-sqlite';
-import { LogEntry, LogEntryWithParsed, ActivityType } from '../types';
+import { LogEntry, LogEntryWithParsed, ActivityType, WindLevel, SkyCondition } from '../types';
 
 export function parseEntry(row: LogEntry): LogEntryWithParsed {
   return {
@@ -36,6 +36,9 @@ export interface CreateEntryInput {
   duration_minutes?: number;
   elevation_gain_m?: number;
   elevation_loss_m?: number;
+  temperature_c?: number;
+  wind?: WindLevel;
+  sky?: SkyCondition;
 }
 
 export async function createEntry(
@@ -45,8 +48,9 @@ export async function createEntry(
   const result = await db.runAsync(
     `INSERT INTO log_entries
       (title, date, activity_type, notes, photos, gear_selections,
-       gpx_raw, distance_km, duration_minutes, elevation_gain_m, elevation_loss_m)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       gpx_raw, distance_km, duration_minutes, elevation_gain_m, elevation_loss_m,
+       temperature_c, wind, sky)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.title,
       input.date,
@@ -59,6 +63,9 @@ export async function createEntry(
       input.duration_minutes ?? null,
       input.elevation_gain_m ?? null,
       input.elevation_loss_m ?? null,
+      input.temperature_c ?? null,
+      input.wind ?? null,
+      input.sky ?? null,
     ]
   );
   return result.lastInsertRowId;

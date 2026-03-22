@@ -20,7 +20,7 @@ import { PhotoStrip } from '@/src/components/PhotoStrip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { parseGpx } from '@/src/gpx/parser';
 import { gpxToLatLng, LatLng } from '@/src/gpx/stats';
-import { formatDate, activityLabel, activityIcon } from '@/src/utils/format';
+import { formatDate, activityLabel, activityIcon, formatTemperature, windLabel, skyLabel } from '@/src/utils/format';
 
 export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -89,6 +89,7 @@ export default function EntryDetailScreen() {
   const hasPhotos = entry.photos.length > 0;
   const hasNotes = !!entry.notes?.trim();
   const checkedCount = Object.values(entry.gear_selections).filter(Boolean).length;
+  const hasConditions = entry.temperature_c != null || entry.wind != null || entry.sky != null;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -128,6 +129,29 @@ export default function EntryDetailScreen() {
       <View style={styles.titleContainer}>
         <Text style={styles.title}>{entry.title}</Text>
       </View>
+
+      {/* Conditions */}
+      {hasConditions && (
+        <View style={styles.conditionsRow}>
+          {entry.temperature_c != null && (
+            <View style={styles.conditionChip}>
+              <Text style={styles.conditionChipText}>🌡 {formatTemperature(entry.temperature_c)}</Text>
+            </View>
+          )}
+          {entry.wind != null && (
+            <View style={styles.conditionChip}>
+              <Text style={styles.conditionChipText}>💨 {windLabel(entry.wind)}</Text>
+            </View>
+          )}
+          {entry.sky != null && (
+            <View style={styles.conditionChip}>
+              <Text style={styles.conditionChipText}>
+                {entry.sky === 'snow' ? '🌨' : entry.sky === 'cloudy' ? '☁️' : entry.sky === 'partly_sunny' ? '⛅' : '☀️'} {skyLabel(entry.sky)}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Photos */}
       {hasPhotos && (
@@ -255,5 +279,30 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  conditionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  conditionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  conditionChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#424242',
   },
 });

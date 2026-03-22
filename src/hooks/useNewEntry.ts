@@ -7,7 +7,7 @@ import { useGpxImport } from './useGpxImport';
 import { createEntry } from '../db/queries/entries';
 import { persistPhoto } from '../utils/photos';
 import { todayIso } from '../utils/format';
-import { ActivityType } from '../db/types';
+import { ActivityType, WindLevel, SkyCondition } from '../db/types';
 
 export function useNewEntry() {
   const db = useSQLiteContext();
@@ -19,6 +19,9 @@ export function useNewEntry() {
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [gearSelections, setGearSelections] = useState<Record<string, boolean>>({});
+  const [temperatureInput, setTemperatureInput] = useState('');
+  const [wind, setWind] = useState<WindLevel | null>(null);
+  const [sky, setSky] = useState<SkyCondition | null>(null);
   const [saving, setSaving] = useState(false);
 
   const toggleGear = useCallback((itemId: number) => {
@@ -64,6 +67,9 @@ export function useNewEntry() {
     setNotes('');
     setPhotos([]);
     setGearSelections({});
+    setTemperatureInput('');
+    setWind(null);
+    setSky(null);
     gpx.clear();
   }, [gpx]);
 
@@ -87,6 +93,9 @@ export function useNewEntry() {
         duration_minutes: gpx.result?.stats.duration_minutes ?? undefined,
         elevation_gain_m: gpx.result?.stats.elevation_gain_m,
         elevation_loss_m: gpx.result?.stats.elevation_loss_m,
+        temperature_c: temperatureInput.trim() ? parseFloat(temperatureInput) : undefined,
+        wind: wind ?? undefined,
+        sky: sky ?? undefined,
       });
       resetForm();
       router.replace('/(tabs)/logbook');
@@ -95,7 +104,7 @@ export function useNewEntry() {
     } finally {
       setSaving(false);
     }
-  }, [db, title, date, activityType, notes, photos, gearSelections, gpx.result, resetForm]);
+  }, [db, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, resetForm]);
 
   return {
     // GPX import
@@ -117,5 +126,12 @@ export function useNewEntry() {
     addPhoto,
     removePhoto,
     handleSave,
+    // Conditions
+    temperatureInput,
+    setTemperatureInput,
+    wind,
+    setWind,
+    sky,
+    setSky,
   };
 }

@@ -71,6 +71,19 @@ export async function runMigrations(db: SQLiteDatabase) {
     'SELECT version FROM schema_version LIMIT 1'
   );
 
+  // ── v2: add conditions columns ─────────────────────────────────────────────
+  const v2Check = await db.getAllAsync<{ version: number }>(
+    'SELECT version FROM schema_version WHERE version = 2 LIMIT 1'
+  );
+  if (v2Check.length === 0 && rows.length > 0) {
+    await db.execAsync(`
+      ALTER TABLE log_entries ADD COLUMN temperature_c  REAL;
+      ALTER TABLE log_entries ADD COLUMN wind           TEXT;
+      ALTER TABLE log_entries ADD COLUMN sky            TEXT;
+    `);
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (2)');
+  }
+
   if (rows.length === 0) {
     // Seed default gear
     for (let ci = 0; ci < DEFAULT_GEAR.length; ci++) {
@@ -88,5 +101,6 @@ export async function runMigrations(db: SQLiteDatabase) {
       }
     }
     await db.runAsync('INSERT INTO schema_version (version) VALUES (1)');
+    await db.runAsync('INSERT INTO schema_version (version) VALUES (2)');
   }
 }

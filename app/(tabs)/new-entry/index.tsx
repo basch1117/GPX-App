@@ -18,9 +18,23 @@ import { PhotoStrip } from '@/src/components/PhotoStrip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { SwisstopoMap } from '@/src/components/SwisstopoMap';
 import { StatsBar } from '@/src/components/StatsBar';
-import { ActivityType } from '@/src/db/types';
+import { ActivityType, WindLevel, SkyCondition } from '@/src/db/types';
 
 const ACTIVITY_TYPES: ActivityType[] = ['Hike', 'Trailrun', 'Skitour', 'Bike'];
+
+const WIND_OPTIONS: { value: WindLevel; label: string }[] = [
+  { value: 'none',   label: 'None'   },
+  { value: 'low',    label: 'Low'    },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high',   label: 'High'   },
+];
+
+const SKY_OPTIONS: { value: SkyCondition; label: string; icon: string }[] = [
+  { value: 'snow',         label: 'Snow',          icon: '🌨' },
+  { value: 'cloudy',       label: 'Cloudy',         icon: '☁️' },
+  { value: 'partly_sunny', label: 'Partly Sunny',   icon: '⛅' },
+  { value: 'sunny',        label: 'Sunny',          icon: '☀️' },
+];
 const ACTIVITY_ICONS: Record<ActivityType, string> = {
   Hike: '🥾',
   Trailrun: '🏃',
@@ -43,6 +57,12 @@ export default function NewEntryScreen() {
     addPhoto,
     removePhoto,
     handleSave,
+    temperatureInput,
+    setTemperatureInput,
+    wind,
+    setWind,
+    sky,
+    setSky,
   } = useNewEntry();
 
   return (
@@ -154,6 +174,67 @@ export default function NewEntryScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
+        </View>
+
+        {/* Conditions */}
+        <SectionHeader title="Conditions" />
+        <View style={styles.conditionsCard}>
+          {/* Temperature */}
+          <View style={styles.conditionRow}>
+            <Text style={styles.conditionLabel}>🌡  Temperature</Text>
+            <View style={styles.tempInputRow}>
+              <TextInput
+                style={styles.tempInput}
+                value={temperatureInput}
+                onChangeText={setTemperatureInput}
+                placeholder="—"
+                placeholderTextColor="#BDBDBD"
+                keyboardType="numeric"
+                maxLength={5}
+              />
+              <Text style={styles.tempUnit}>°C</Text>
+            </View>
+          </View>
+
+          <View style={styles.conditionDivider} />
+
+          {/* Wind */}
+          <View style={styles.conditionBlock}>
+            <Text style={styles.conditionLabel}>💨  Wind</Text>
+            <View style={styles.pillRow}>
+              {WIND_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[styles.pill, wind === o.value && styles.pillActive]}
+                  onPress={() => setWind(wind === o.value ? null : o.value)}
+                >
+                  <Text style={[styles.pillText, wind === o.value && styles.pillTextActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.conditionDivider} />
+
+          {/* Sky */}
+          <View style={styles.conditionBlock}>
+            <Text style={styles.conditionLabel}>☀️  Sky</Text>
+            <View style={styles.pillRow}>
+              {SKY_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[styles.pill, sky === o.value && styles.pillActive]}
+                  onPress={() => setSky(sky === o.value ? null : o.value)}
+                >
+                  <Text style={[styles.pillText, sky === o.value && styles.pillTextActive]}>
+                    {o.icon} {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Gear Checklist */}
@@ -351,5 +432,82 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 48,
+  },
+  conditionsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  conditionBlock: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  conditionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#424242',
+  },
+  conditionDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 14,
+  },
+  tempInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tempInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 15,
+    color: '#212121',
+    width: 72,
+    textAlign: 'right',
+  },
+  tempUnit: {
+    fontSize: 14,
+    color: '#757575',
+    fontWeight: '500',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FAFAFA',
+  },
+  pillActive: {
+    borderColor: '#2D6A4F',
+    backgroundColor: '#E8F5E9',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#757575',
+  },
+  pillTextActive: {
+    color: '#2D6A4F',
+    fontWeight: '600',
   },
 });
