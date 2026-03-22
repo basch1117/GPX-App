@@ -20,6 +20,7 @@ const SWITZERLAND_REGION: Region = {
 
 interface SwisstopoMapProps extends Omit<MapViewProps, 'provider' | 'mapType'> {
   tracks?: LatLng[][];
+  trackColors?: string[];
   onTrackPress?: (index: number) => void;
   selectedTrackIndex?: number;
   fitToTracks?: boolean;
@@ -41,6 +42,7 @@ TileLayer.displayName = 'TileLayer';
 
 export const SwisstopoMap = memo(function SwisstopoMap({
   tracks = [],
+  trackColors,
   onTrackPress,
   selectedTrackIndex,
   fitToTracks = false,
@@ -92,7 +94,7 @@ export const SwisstopoMap = memo(function SwisstopoMap({
           <Polyline
             key={index}
             coordinates={coords}
-            strokeColor={index === selectedTrackIndex ? '#E63946' : '#2D6A4F'}
+            strokeColor={trackColors?.[index] ?? (index === selectedTrackIndex ? '#E63946' : '#2D6A4F')}
             strokeWidth={index === selectedTrackIndex ? 7 : 5}
             tappable={!!onTrackPress}
             onPress={() => onTrackPress?.(index)}

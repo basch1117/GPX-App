@@ -1,24 +1,62 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LogEntryWithParsed } from '../db/types';
-import { formatDate, formatDistance, formatElevation, activityLabel, activityIcon } from '../utils/format';
+import { ActivityType } from '../db/types';
+import {
+  formatDateSwiss,
+  formatDistance,
+  formatElevation,
+  activityLabel,
+  activityIcon,
+  formatTemperature,
+  windLabel,
+  skyLabel,
+  outfitComfortIcon,
+  outfitComfortLabel,
+} from '../utils/format';
 
 interface EntryCardProps {
   entry: LogEntryWithParsed;
   onPress: () => void;
 }
 
+const BADGE_COLORS: Record<ActivityType, { bg: string; text: string }> = {
+  Hike:     { bg: '#E8F5E9', text: '#2D6A4F' },
+  Trailrun: { bg: '#FFEBEE', text: '#C62828' },
+  Skitour:  { bg: '#E3F2FD', text: '#1565C0' },
+  Bike:     { bg: '#FFF3E0', text: '#E65100' },
+};
+
+function skyIcon(sky: string): string {
+  if (sky === 'snow') return '🌨';
+  if (sky === 'cloudy') return '☁️';
+  if (sky === 'partly_sunny') return '⛅';
+  return '☀️';
+}
+
 export function EntryCard({ entry, onPress }: EntryCardProps) {
+  const badge = BADGE_COLORS[entry.activity_type] ?? BADGE_COLORS.Hike;
+  const hasConditions =
+    entry.temperature_c != null ||
+    (entry.wind != null && entry.wind !== 'none') ||
+    entry.sky != null ||
+    entry.outfit_comfort != null ||
+    entry.location_name != null;
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
-        <View style={styles.activityBadge}>
+        <View style={[styles.activityBadge, { backgroundColor: badge.bg }]}>
           <Text style={styles.activityIcon}>{activityIcon(entry.activity_type)}</Text>
-          <Text style={styles.activityLabel}>{activityLabel(entry.activity_type)}</Text>
+          <Text style={[styles.activityLabel, { color: badge.text }]}>
+            {activityLabel(entry.activity_type)}
+          </Text>
         </View>
-        <Text style={styles.date}>{formatDate(entry.date)}</Text>
+        <Text style={styles.date}>{formatDateSwiss(entry.date)}</Text>
       </View>
+
       <Text style={styles.title} numberOfLines={2}>{entry.title}</Text>
+
       <View style={styles.stats}>
         <StatItem label="Distance" value={formatDistance(entry.distance_km)} />
         <StatDivider />
@@ -30,6 +68,30 @@ export function EntryCard({ entry, onPress }: EntryCardProps) {
           </>
         )}
       </View>
+
+      {hasConditions && (
+        <View style={styles.conditions}>
+          {entry.temperature_c != null && (
+            <Text style={styles.condText}>🌡 {formatTemperature(entry.temperature_c)}</Text>
+          )}
+          {entry.wind != null && entry.wind !== 'none' && (
+            <Text style={styles.condText}>💨 {windLabel(entry.wind)}</Text>
+          )}
+          {entry.sky != null && (
+            <Text style={styles.condText}>
+              {skyIcon(entry.sky)} {skyLabel(entry.sky)}
+            </Text>
+          )}
+          {entry.outfit_comfort != null && (
+            <Text style={styles.condText}>
+              🧥 {outfitComfortIcon(entry.outfit_comfort)} {outfitComfortLabel(entry.outfit_comfort)}
+            </Text>
+          )}
+          {entry.location_name != null && (
+            <Text style={styles.condText}>📍 {entry.location_name}</Text>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -69,7 +131,6 @@ const styles = StyleSheet.create({
   activityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -80,7 +141,6 @@ const styles = StyleSheet.create({
   },
   activityLabel: {
     fontSize: 12,
-    color: '#2D6A4F',
     fontWeight: '600',
   },
   date: {
@@ -119,5 +179,19 @@ const styles = StyleSheet.create({
     width: 1,
     height: 28,
     backgroundColor: '#E0E0E0',
+  },
+  conditions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 8,
+    marginTop: 10,
+  },
+  condText: {
+    fontSize: 11,
+    color: '#757575',
+    fontWeight: '500',
   },
 });

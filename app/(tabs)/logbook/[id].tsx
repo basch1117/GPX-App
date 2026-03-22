@@ -14,13 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEntry } from '@/src/hooks/useEntries';
 import { useGearTemplate } from '@/src/hooks/useGearTemplate';
 import { SwisstopoMap } from '@/src/components/SwisstopoMap';
+import { Marker } from 'react-native-maps';
 import { StatsBar } from '@/src/components/StatsBar';
 import { GearChecklist } from '@/src/components/GearChecklist';
 import { PhotoStrip } from '@/src/components/PhotoStrip';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { parseGpx } from '@/src/gpx/parser';
 import { gpxToLatLng, LatLng } from '@/src/gpx/stats';
-import { formatDate, activityLabel, activityIcon, formatTemperature, windLabel, skyLabel } from '@/src/utils/format';
+import { formatDateSwiss, activityLabel, activityIcon, formatTemperature, windLabel, skyLabel, outfitComfortLabel, outfitComfortIcon } from '@/src/utils/format';
 
 export default function EntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -86,21 +87,44 @@ export default function EntryDetailScreen() {
   }
 
   const hasGpx = coords.length > 0;
+  const hasLocation = entry.location_lat != null && entry.location_lng != null;
   const hasPhotos = entry.photos.length > 0;
   const hasNotes = !!entry.notes?.trim();
   const checkedCount = Object.values(entry.gear_selections).filter(Boolean).length;
-  const hasConditions = entry.temperature_c != null || entry.wind != null || entry.sky != null;
+  const hasConditions =
+    entry.temperature_c != null ||
+    entry.wind != null ||
+    entry.sky != null ||
+    entry.outfit_comfort != null ||
+    entry.location_name != null;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Map */}
       {hasGpx ? (
         <View style={styles.mapContainer}>
+          <SwisstopoMap tracks={[coords]} fitToTracks style={styles.map} />
+        </View>
+      ) : hasLocation ? (
+        <View style={styles.mapContainer}>
           <SwisstopoMap
-            tracks={[coords]}
-            fitToTracks
             style={styles.map}
-          />
+            initialRegion={{
+              latitude: entry.location_lat!,
+              longitude: entry.location_lng!,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+          >
+            <Marker
+              coordinate={{ latitude: entry.location_lat!, longitude: entry.location_lng! }}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <View style={styles.markerBubble}>
+                <Text style={styles.markerIcon}>{activityIcon(entry.activity_type)}</Text>
+              </View>
+            </Marker>
+          </SwisstopoMap>
         </View>
       ) : (
         <View style={styles.noMapPlaceholder}>
@@ -122,7 +146,7 @@ export default function EntryDetailScreen() {
           <Text style={styles.activityIcon}>{activityIcon(entry.activity_type)}</Text>
           <Text style={styles.activityLabel}>{activityLabel(entry.activity_type)}</Text>
         </View>
-        <Text style={styles.date}>{formatDate(entry.date)}</Text>
+        <Text style={styles.date}>{formatDateSwiss(entry.date)}</Text>
       </View>
 
       {/* Title */}
@@ -148,6 +172,18 @@ export default function EntryDetailScreen() {
               <Text style={styles.conditionChipText}>
                 {entry.sky === 'snow' ? '🌨' : entry.sky === 'cloudy' ? '☁️' : entry.sky === 'partly_sunny' ? '⛅' : '☀️'} {skyLabel(entry.sky)}
               </Text>
+            </View>
+          )}
+          {entry.outfit_comfort != null && (
+            <View style={styles.conditionChip}>
+              <Text style={styles.conditionChipText}>
+                🧥 {outfitComfortIcon(entry.outfit_comfort)} {outfitComfortLabel(entry.outfit_comfort)}
+              </Text>
+            </View>
+          )}
+          {entry.location_name != null && (
+            <View style={styles.conditionChip}>
+              <Text style={styles.conditionChipText}>📍 {entry.location_name}</Text>
             </View>
           )}
         </View>
@@ -204,6 +240,22 @@ const styles = StyleSheet.create({
   notFound: {
     fontSize: 16,
     color: '#757575',
+  },
+  markerBubble: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  markerIcon: {
+    fontSize: 14,
   },
   mapContainer: {
     height: 260,
