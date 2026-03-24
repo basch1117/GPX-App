@@ -12,7 +12,16 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SQLiteProvider databaseName="traillog.db" onInit={runMigrations}>
+    <SQLiteProvider
+      databaseName="traillog.db"
+      onInit={async (db) => {
+        try {
+          await runMigrations(db);
+        } catch (e) {
+          console.error('Migration failed:', e);
+        }
+      }}
+    >
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
