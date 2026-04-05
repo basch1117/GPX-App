@@ -36,6 +36,13 @@ const SCHEMA_V1 = `
     duration_minutes INTEGER,
     elevation_gain_m REAL,
     elevation_loss_m REAL,
+    temperature_c    REAL,
+    wind             TEXT,
+    sky              TEXT,
+    outfit_comfort   TEXT,
+    location_name    TEXT,
+    location_lat     REAL,
+    location_lng     REAL,
     created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 
