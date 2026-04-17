@@ -33,16 +33,6 @@ export async function deleteCategory(db: SQLiteDatabase, id: number): Promise<vo
 
 // ── Items ─────────────────────────────────────────────────────────────────────
 
-export async function getItemsByCategory(
-  db: SQLiteDatabase,
-  categoryId: number
-): Promise<GearItem[]> {
-  return db.getAllAsync<GearItem>(
-    'SELECT * FROM items WHERE category_id = ? ORDER BY sort_order ASC, id ASC',
-    [categoryId]
-  );
-}
-
 export async function getAllItems(db: SQLiteDatabase): Promise<GearItem[]> {
   return db.getAllAsync<GearItem>('SELECT * FROM items ORDER BY category_id ASC, sort_order ASC, id ASC');
 }

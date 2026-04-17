@@ -91,25 +91,3 @@ export interface LatLng {
 export function gpxToLatLng(data: GpxData): LatLng[] {
   return data.allPoints.map((p) => ({ latitude: p.lat, longitude: p.lon }));
 }
-
-export interface BoundingBox {
-  minLat: number;
-  maxLat: number;
-  minLon: number;
-  maxLon: number;
-}
-
-export function computeBounds(points: LatLng[]): BoundingBox | null {
-  if (points.length === 0) return null;
-  let minLat = points[0].latitude;
-  let maxLat = points[0].latitude;
-  let minLon = points[0].longitude;
-  let maxLon = points[0].longitude;
-  for (const p of points) {
-    if (p.latitude < minLat) minLat = p.latitude;
-    if (p.latitude > maxLat) maxLat = p.latitude;
-    if (p.longitude < minLon) minLon = p.longitude;
-    if (p.longitude > maxLon) maxLon = p.longitude;
-  }
-  return { minLat, maxLat, minLon, maxLon };
-}

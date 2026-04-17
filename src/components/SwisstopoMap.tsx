@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { UrlTile, Polyline, PROVIDER_DEFAULT, Region, MapViewProps } from 'react-native-maps';
-import * as FileSystem from 'expo-file-system';
+import { Directory, Paths } from 'expo-file-system';
 import { LatLng } from '../gpx/stats';
 
 const SWISSTOPO_URL =
@@ -55,15 +55,13 @@ export const SwisstopoMap = memo(function SwisstopoMap({
 
   // Set up tile cache directory once on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const cacheDir = FileSystem.cacheDirectory + 'swisstopo_tiles/';
-        await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        setCachePath(cacheDir);
-      } catch {
-        // If cache setup fails, tiles still load — just without caching
-      }
-    })();
+    try {
+      const dir = new Directory(Paths.cache, 'swisstopo_tiles');
+      dir.create({ intermediates: true });
+      setCachePath(dir.uri);
+    } catch {
+      // If cache setup fails, tiles still load — just without caching
+    }
   }, []);
 
   useEffect(() => {

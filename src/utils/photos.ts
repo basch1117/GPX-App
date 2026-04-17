@@ -14,11 +14,3 @@ export async function persistPhoto(tempUri: string): Promise<string> {
   new File(tempUri).copy(dest);
   return dest.uri;
 }
-
-export function deletePhoto(uri: string): void {
-  try {
-    new File(uri).delete();
-  } catch {
-    // ignore
-  }
-}

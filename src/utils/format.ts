@@ -1,11 +1,5 @@
 import { ActivityType, WindLevel, SkyCondition, OutfitComfort } from '../db/types';
 
-export function formatDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString('en-CH', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 /** Swiss display format: DD.MM.YYYY */
 export function formatDateSwiss(isoDate: string): string {
   const [year, month, day] = isoDate.split('-');
