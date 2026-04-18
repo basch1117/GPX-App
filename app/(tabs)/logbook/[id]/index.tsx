@@ -49,15 +49,24 @@ export default function EntryDetailScreen() {
     );
   }, [remove]);
 
+  const handleEdit = useCallback(() => {
+    router.push(`/(tabs)/logbook/${entryId}/edit`);
+  }, [entryId]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={handleDelete} style={{ marginRight: 8 }}>
-          <Ionicons name="trash-outline" size={22} color="#E63946" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={handleEdit}>
+            <Ionicons name="create-outline" size={22} color="#2D6A4F" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={22} color="#E63946" />
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation, handleDelete]);
+  }, [navigation, handleDelete, handleEdit]);
 
   if (loading) {
     return (
@@ -240,6 +249,12 @@ const styles = StyleSheet.create({
   notFound: {
     fontSize: 16,
     color: '#757575',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginRight: 8,
   },
   markerBubble: {
     backgroundColor: '#FFFFFF',

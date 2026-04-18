@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { useGpxImport } from './useGpxImport';
 import { useLocationSearch } from './useLocationSearch';
-import { createEntry } from '../db/queries/entries';
+import { createEntry, updateEntry, getEntryById } from '../db/queries/entries';
 import { persistPhoto } from '../utils/photos';
 import { todayIso } from '../utils/format';
 import { ActivityType, WindLevel, SkyCondition, OutfitComfort } from '../db/types';
 
-export function useNewEntry() {
+export function useNewEntry(editId?: number) {
   const db = useSQLiteContext();
   const gpx = useGpxImport();
   const locationSearch = useLocationSearch();
@@ -26,6 +26,45 @@ export function useNewEntry() {
   const [sky, setSky] = useState<SkyCondition | null>(null);
   const [outfitComfort, setOutfitComfort] = useState<OutfitComfort | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(!!editId);
+
+  // Load existing entry when editing
+  useEffect(() => {
+    if (editId == null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const entry = await getEntryById(db, editId);
+        if (cancelled || !entry) return;
+        setTitle(entry.title);
+        setDate(entry.date);
+        setActivityType(entry.activity_type);
+        setNotes(entry.notes ?? '');
+        setPhotos(entry.photos);
+        setGearSelections(entry.gear_selections);
+        setTemperatureInput(entry.temperature_c != null ? String(entry.temperature_c) : '');
+        setWind(entry.wind);
+        setSky(entry.sky);
+        setOutfitComfort(entry.outfit_comfort);
+        if (entry.location_name && entry.location_lat != null && entry.location_lng != null) {
+          locationSearch.select({
+            name: entry.location_name,
+            lat: entry.location_lat,
+            lng: entry.location_lng,
+          });
+        }
+        if (entry.gpx_raw) {
+          gpx.setFromRaw(entry.gpx_raw);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db, editId]);
 
   const toggleGear = useCallback((itemId: number) => {
     setGearSelections((prev) => ({
@@ -86,7 +125,7 @@ export function useNewEntry() {
 
     setSaving(true);
     try {
-      await createEntry(db, {
+      const input = {
         title: title.trim(),
         date,
         activity_type: activityType,
@@ -105,15 +144,22 @@ export function useNewEntry() {
         location_name: locationSearch.selected?.name ?? undefined,
         location_lat: locationSearch.selected?.lat ?? undefined,
         location_lng: locationSearch.selected?.lng ?? undefined,
-      });
-      resetForm();
-      router.replace('/(tabs)/logbook');
+      };
+
+      if (editId != null) {
+        await updateEntry(db, editId, input);
+        router.back();
+      } else {
+        await createEntry(db, input);
+        resetForm();
+        router.replace('/(tabs)/logbook');
+      }
     } catch {
       Alert.alert('Error', 'Failed to save entry. Please try again.');
     } finally {
       setSaving(false);
     }
-  }, [db, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, outfitComfort, locationSearch.selected, resetForm]);
+  }, [db, editId, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, outfitComfort, locationSearch.selected, resetForm]);
 
   return {
     // GPX import
@@ -130,6 +176,8 @@ export function useNewEntry() {
     photos,
     gearSelections,
     saving,
+    loading,
+    isEdit: editId != null,
     // Handlers
     toggleGear,
     addPhoto,

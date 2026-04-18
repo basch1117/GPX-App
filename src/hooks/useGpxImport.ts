@@ -63,5 +63,17 @@ export function useGpxImport() {
     setError(null);
   }, []);
 
-  return { result, error, loading, pickGpx, clear };
+  const setFromRaw = useCallback((xml: string, fileName = 'track.gpx') => {
+    try {
+      const data = parseGpx(xml);
+      if (data.allPoints.length === 0) return;
+      const stats = computeStats(data);
+      const coords = gpxToLatLng(data);
+      setResult({ raw: xml, data, stats, coords, fileName });
+    } catch {
+      // ignore — leave existing state
+    }
+  }, []);
+
+  return { result, error, loading, pickGpx, clear, setFromRaw };
 }

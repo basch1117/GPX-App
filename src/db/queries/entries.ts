@@ -80,6 +80,42 @@ export async function createEntry(
   return result.lastInsertRowId;
 }
 
+export async function updateEntry(
+  db: SQLiteDatabase,
+  id: number,
+  input: CreateEntryInput
+): Promise<void> {
+  await db.runAsync(
+    `UPDATE log_entries SET
+       title = ?, date = ?, activity_type = ?, notes = ?, photos = ?, gear_selections = ?,
+       gpx_raw = ?, distance_km = ?, duration_minutes = ?, elevation_gain_m = ?, elevation_loss_m = ?,
+       temperature_c = ?, wind = ?, sky = ?, outfit_comfort = ?,
+       location_name = ?, location_lat = ?, location_lng = ?
+     WHERE id = ?`,
+    [
+      input.title,
+      input.date,
+      input.activity_type,
+      input.notes ?? null,
+      JSON.stringify(input.photos ?? []),
+      JSON.stringify(input.gear_selections ?? {}),
+      input.gpx_raw ?? null,
+      input.distance_km ?? null,
+      input.duration_minutes ?? null,
+      input.elevation_gain_m ?? null,
+      input.elevation_loss_m ?? null,
+      input.temperature_c ?? null,
+      input.wind ?? null,
+      input.sky ?? null,
+      input.outfit_comfort ?? null,
+      input.location_name ?? null,
+      input.location_lat ?? null,
+      input.location_lng ?? null,
+      id,
+    ]
+  );
+}
+
 export async function deleteEntry(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync('DELETE FROM log_entries WHERE id = ?', [id]);
 }

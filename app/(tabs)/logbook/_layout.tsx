@@ -12,7 +12,8 @@ export default function LogbookLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'TrailLog' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Entry Detail' }} />
+      <Stack.Screen name="[id]/index" options={{ title: 'Entry Detail' }} />
+      <Stack.Screen name="[id]/edit" options={{ title: 'Edit Entry' }} />
     </Stack>
   );
 }
