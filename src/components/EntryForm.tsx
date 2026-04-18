@@ -77,6 +77,14 @@ export function EntryForm({ editId }: { editId?: number }) {
     setSky,
     outfitComfort,
     setOutfitComfort,
+    distanceInput,
+    setDistanceInput,
+    elevationGainInput,
+    setElevationGainInput,
+    durationHoursInput,
+    setDurationHoursInput,
+    durationMinutesInput,
+    setDurationMinutesInput,
     locationSearch,
   } = useNewEntry(editId);
 
@@ -135,6 +143,76 @@ export function EntryForm({ editId }: { editId?: number }) {
             </View>
           )}
         </View>
+
+        {/* Manual stats — shown only when no GPX is imported */}
+        {!gpx.result && (
+          <>
+            <SectionHeader title="Distance & Elevation" />
+            <View style={styles.manualStatsCard}>
+              <View style={styles.manualStatsRow}>
+                <Text style={styles.conditionLabel}>📏  Distance</Text>
+                <View style={styles.tempInputRow}>
+                  <TextInput
+                    style={styles.tempInput}
+                    value={distanceInput}
+                    onChangeText={setDistanceInput}
+                    placeholder="—"
+                    placeholderTextColor="#BDBDBD"
+                    keyboardType="numeric"
+                    maxLength={6}
+                  />
+                  <Text style={styles.tempUnit}>km</Text>
+                </View>
+              </View>
+
+              <View style={styles.conditionDivider} />
+
+              <View style={styles.manualStatsRow}>
+                <Text style={styles.conditionLabel}>⛰  Elevation Gain</Text>
+                <View style={styles.tempInputRow}>
+                  <TextInput
+                    style={styles.tempInput}
+                    value={elevationGainInput}
+                    onChangeText={setElevationGainInput}
+                    placeholder="—"
+                    placeholderTextColor="#BDBDBD"
+                    keyboardType="numeric"
+                    maxLength={6}
+                  />
+                  <Text style={styles.tempUnit}>m</Text>
+                </View>
+              </View>
+
+              <View style={styles.conditionDivider} />
+
+              <View style={styles.manualStatsRow}>
+                <Text style={styles.conditionLabel}>⏱  Duration</Text>
+                <View style={styles.durationInputRow}>
+                  <TextInput
+                    style={styles.durationInput}
+                    value={durationHoursInput}
+                    onChangeText={setDurationHoursInput}
+                    placeholder="0"
+                    placeholderTextColor="#BDBDBD"
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
+                  <Text style={styles.tempUnit}>h</Text>
+                  <TextInput
+                    style={styles.durationInput}
+                    value={durationMinutesInput}
+                    onChangeText={setDurationMinutesInput}
+                    placeholder="0"
+                    placeholderTextColor="#BDBDBD"
+                    keyboardType="numeric"
+                    maxLength={2}
+                  />
+                  <Text style={styles.tempUnit}>min</Text>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Location */}
         <SectionHeader title="Location" />
@@ -703,6 +781,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     overflow: 'hidden',
+  },
+  manualStatsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  manualStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  durationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  durationInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 15,
+    color: '#212121',
+    width: 52,
+    textAlign: 'right',
   },
   conditionRow: {
     flexDirection: 'row',

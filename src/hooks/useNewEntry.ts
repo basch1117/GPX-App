@@ -25,6 +25,10 @@ export function useNewEntry(editId?: number) {
   const [wind, setWind] = useState<WindLevel | null>(null);
   const [sky, setSky] = useState<SkyCondition | null>(null);
   const [outfitComfort, setOutfitComfort] = useState<OutfitComfort | null>(null);
+  const [distanceInput, setDistanceInput] = useState('');
+  const [elevationGainInput, setElevationGainInput] = useState('');
+  const [durationHoursInput, setDurationHoursInput] = useState('');
+  const [durationMinutesInput, setDurationMinutesInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!editId);
 
@@ -55,6 +59,15 @@ export function useNewEntry(editId?: number) {
         }
         if (entry.gpx_raw) {
           gpx.setFromRaw(entry.gpx_raw);
+        } else {
+          // No GPX: prefill manual stats if present
+          setDistanceInput(entry.distance_km != null ? String(entry.distance_km) : '');
+          setElevationGainInput(entry.elevation_gain_m != null ? String(entry.elevation_gain_m) : '');
+          if (entry.duration_minutes != null) {
+            const totalMin = Math.max(0, Math.round(entry.duration_minutes));
+            setDurationHoursInput(String(Math.floor(totalMin / 60)));
+            setDurationMinutesInput(String(totalMin % 60));
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -113,6 +126,10 @@ export function useNewEntry(editId?: number) {
     setWind(null);
     setSky(null);
     setOutfitComfort(null);
+    setDistanceInput('');
+    setElevationGainInput('');
+    setDurationHoursInput('');
+    setDurationMinutesInput('');
     gpx.clear();
     locationSearch.clear();
   }, [gpx]);
@@ -125,6 +142,18 @@ export function useNewEntry(editId?: number) {
 
     setSaving(true);
     try {
+      // Prefer GPX-derived stats when a track is imported; otherwise fall back
+      // to the manual distance/elevation/duration inputs.
+      const manualDistance = distanceInput.trim() ? parseFloat(distanceInput) : undefined;
+      const manualElevationGain = elevationGainInput.trim() ? parseFloat(elevationGainInput) : undefined;
+      const manualDurationH = durationHoursInput.trim() ? parseInt(durationHoursInput, 10) : 0;
+      const manualDurationM = durationMinutesInput.trim() ? parseInt(durationMinutesInput, 10) : 0;
+      const hasManualDuration = durationHoursInput.trim() !== '' || durationMinutesInput.trim() !== '';
+      const manualDurationMinutes = hasManualDuration
+        && !Number.isNaN(manualDurationH) && !Number.isNaN(manualDurationM)
+        ? manualDurationH * 60 + manualDurationM
+        : undefined;
+
       const input = {
         title: title.trim(),
         date,
@@ -133,9 +162,11 @@ export function useNewEntry(editId?: number) {
         photos,
         gear_selections: gearSelections,
         gpx_raw: gpx.result?.raw,
-        distance_km: gpx.result?.stats.distance_km,
-        duration_minutes: gpx.result?.stats.duration_minutes ?? undefined,
-        elevation_gain_m: gpx.result?.stats.elevation_gain_m,
+        distance_km: gpx.result?.stats.distance_km
+          ?? (manualDistance != null && !Number.isNaN(manualDistance) ? manualDistance : undefined),
+        duration_minutes: gpx.result?.stats.duration_minutes ?? manualDurationMinutes,
+        elevation_gain_m: gpx.result?.stats.elevation_gain_m
+          ?? (manualElevationGain != null && !Number.isNaN(manualElevationGain) ? manualElevationGain : undefined),
         elevation_loss_m: gpx.result?.stats.elevation_loss_m,
         temperature_c: temperatureInput.trim() ? parseFloat(temperatureInput) : undefined,
         wind: wind ?? undefined,
@@ -159,7 +190,7 @@ export function useNewEntry(editId?: number) {
     } finally {
       setSaving(false);
     }
-  }, [db, editId, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, outfitComfort, locationSearch.selected, resetForm]);
+  }, [db, editId, title, date, activityType, notes, photos, gearSelections, gpx.result, temperatureInput, wind, sky, outfitComfort, distanceInput, elevationGainInput, durationHoursInput, durationMinutesInput, locationSearch.selected, resetForm]);
 
   return {
     // GPX import
@@ -192,6 +223,15 @@ export function useNewEntry(editId?: number) {
     setSky,
     outfitComfort,
     setOutfitComfort,
+    // Manual stats (used when no GPX is imported)
+    distanceInput,
+    setDistanceInput,
+    elevationGainInput,
+    setElevationGainInput,
+    durationHoursInput,
+    setDurationHoursInput,
+    durationMinutesInput,
+    setDurationMinutesInput,
     // Location search
     locationSearch,
   };
