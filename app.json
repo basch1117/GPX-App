@@ -2,7 +2,7 @@
   "expo": {
     "name": "TrailLog",
     "slug": "traillog",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -27,7 +27,12 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.traillog.app",
-      "versionCode": 6,
+      "versionCode": 7,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyADKFWCGs7GKuaNjFSzoK5ytzXHIWdgq8I"
+        }
+      },
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
