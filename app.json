@@ -27,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.traillog.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyADKFWCGs7GKuaNjFSzoK5ytzXHIWdgq8I"
